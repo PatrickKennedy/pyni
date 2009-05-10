@@ -34,7 +34,7 @@ import os
 from collections import defaultdict
 from StringIO import StringIO
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 def sterilize_comment(comment):
 	# Make sure the comment can't be used to inject values.
