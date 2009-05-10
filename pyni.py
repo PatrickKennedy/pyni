@@ -34,7 +34,7 @@ import os
 from collections import defaultdict
 from StringIO import StringIO
 
-__version__ = '0.2.3'
+__version__ = '0.2.4'
 
 def sterilize_comment(comment):
 	"""Sterilize all lines of a comment.
@@ -57,7 +57,7 @@ def sterilize_comment(comment):
 class ConfigNode(defaultdict):
 	def __init__(self):
 		self.default_factory = ConfigNode
-		self._comments = {}
+		self._comments = defaultdict(str)
 
 	def __getattr__(self, attr):
 		return self.__getitem__(attr)
@@ -94,8 +94,8 @@ class ConfigNode(defaultdict):
 		children = self.items()
 		children.sort()
 		for key, value in children:
-			# If we're handling a dictionary
-			if isinstance(value, defaultdict):
+			# If we're handling a subsection
+			if isinstance(value, ConfigNode):
 				sub_sections.append((key, value))
 			# All other variables get thrown into assignments
 			else:
@@ -216,6 +216,10 @@ if __name__ == '__main__':
 		if not c:
 			print "DEBUG: Empty/Unknown File"
 			print "DEBUG: Using Defaults"
+			c._comments['__root__'] = 'Configutation Options for <program_name_here>.\nDo NOT edit while program is running.'
+			c._comments['log_path'] = 'Folder for logs to be stored under\n'
+			c._comments['log_path'] += ''
+			c.log_path = 'logs'
 			c._comments['breakfast'] = 'This sounds like a lovely breakfast ^^'
 			c.breakfast = ['bacon', 'eggs', 'pancakes', 'orange juice']
 			c.x = 3.14159
