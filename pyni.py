@@ -32,12 +32,13 @@ from __future__ import with_statement
 import os
 
 from collections import defaultdict
+from StringIO import StringIO
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 class ConfigNode(defaultdict):
 	def __init__(self):
-		self.default_factory = type(self)
+		self.default_factory = ConfigNode
 		self._comments = {}
 
 	def __getattr__(self, attr):
@@ -58,10 +59,11 @@ class ConfigNode(defaultdict):
 	def __repr__(self):
 		return dict(self).__repr__()
 
-	def _output(self, parents=None, buffer=None):
+	def _output(self, stream=None, parents=None):
 		if parents is None:
 			parents = []
-			buffer = []
+		if stream is None:
+			stream = StringIO()
 
 		# True if we've already appended the parent sections
 		buffered_parents = False
@@ -81,32 +83,39 @@ class ConfigNode(defaultdict):
 			else:
 				# Append all parent sections to the beginning of assignments.
 				if not buffered_parents and parents:
-					buffer.append('')
+					stream.write('\n')
 					# Attach section comments to the header.
 					if '__root__' in self._comments:
-						buffer.append(self._comments['__root__'])
-					[buffer.append("[%s]" % parent) for parent in parents]
+						stream.write(self._comments['__root__'])
+						# Make sure the comment doesn't absorb the section
+						if not self._comments['__root__'].endswith('\n'):
+							stream.write('\n')
+					[stream.write("[%s]\n" % parent) for parent in parents]
 					buffered_parents = True
 
 				# Attach value comments to each value.
 				if key in self._comments:
-					buffer.append(self._comments[key])
-				buffer.append("%s = %r" % (key, value))
+					stream.write(self._comments[key])
+					# Make sure the comment doesn't absorb the assignment
+					if not self._comments[key].endswith('\n'):
+						stream.write('\n')
+				stream.write("%s = %r\n" % (key, value))
 
 		# Walk through all sub-sections, appending and poping to emulate depth.
 		for key, value in sub_sections:
 			parents.append(key)
-			value._output(parents, buffer)
+			value._output(stream, parents)
 			parents.pop()
+			stream.flush()
 
-		return '\n'.join(buffer)
+		return stream
 
 class ConfigRoot(ConfigNode):
 
 	def __init__(self, filename, encoding='utf-8'):
+		ConfigNode.__init__(self)
 		self._filename = filename
 		self._encoding = encoding
-		self.default_factory = ConfigNode
 
 	def read(self, clear=True):
 		self.parse_config()
@@ -155,6 +164,7 @@ class ConfigRoot(ConfigNode):
 			key, value = line.split('=', 1)
 			key, value = key.strip(), value.strip()
 			node[key] = eval(compile(value, self._filename + ' line: %d' % (index+1), 'eval'))
+
 			if comment_lines:
 				comment_block = '\n'.join(comment_lines)
 				comment_lines[:] = []
@@ -170,14 +180,22 @@ class ConfigRoot(ConfigNode):
 	def parse_config_file(self, file_, clear=True):
 		self.parse_config_list((line.rstrip('\n') for line in file_), clear)
 
-	def save(self):
-		with file(self._filename, 'w+') as f:
-			f.write(self._output())
+	def save(self, filename=None):
+		with file(filename or self._filename, 'w+') as f:
+			self._output(stream=f)
 
 if __name__ == '__main__':
+	import sys
+	input = 'config.ini'
+	output = 'config_out.ini'
+	if len(sys.argv) > 1:
+		input = sys.argv[1]
+	if len(sys.argv) > 2:
+		output = sys.argv[2]
+
+	c = ConfigRoot(input)
 	try:
-		c = ConfigRoot('config.ini')
-		print "DEBUG: Parsing File"
+		print "DEBUG: Parsing File (%s)" % input
 		c.parse_config()
 	except IOError, e:
 		print "DEBUG: Empty/Unknown File"
@@ -192,9 +210,9 @@ if __name__ == '__main__':
 		c.server.ports.telnet = 23
 		c.server.ports.http = 80
 	#print "First Parse:\n%s\n" % c
-	print "DEBUG: Saving File"
-	c.save()
+	print "DEBUG: Saving File (%s)" % output
+	c.save(output)
 	print "DEBUG: Reparsing outputed file"
-	c = ConfigRoot('config_out.ini')
+	c = ConfigRoot(output)
 	c.parse_config()
 	#print "Second Parse:\n%s\n" % c
