@@ -150,9 +150,9 @@ class ConfigRoot(ConfigNode):
 		"""
 		if isinstance(content, basestring):
 			self._parse_string(content, clear)
-		elif hasattr(content, readlines):
+		elif hasattr(content, 'readlines'):
 			self._parse_file(content, clear)
-		elif hasattr(content, __iter__):
+		elif hasattr(content, '__iter__'):
 			self._parse_list(content, clear)
 		else:
 			raise TypeError("Unknown config content type: %s" % type(content))
