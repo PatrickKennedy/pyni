@@ -34,7 +34,7 @@ import os
 from collections import defaultdict
 from StringIO import StringIO
 
-__version__ = '0.2.4'
+__version__ = '0.3.4'
 
 def sterilize_comment(comment):
 	"""Sterilize all lines of a comment.
@@ -130,15 +130,34 @@ class ConfigRoot(ConfigNode):
 		self._encoding = encoding
 
 	def read(self, clear=True):
-		self.parse_config()
-
-	def parse_config(self, clear=True):
 		if not os.path.exists(self._filename):
 			print "Creating %s" % self._filename
 		with open(self._filename, 'a+') as f:
-			self.parse_config_file(f, clear)
+			self._parse_file(f, clear)
 
-	def parse_config_list(self, list_, clear=True):
+	def save(self, filename=None):
+		with file(filename or self._filename, 'w+') as f:
+			self._output(stream=f)
+
+	def parse_object(self, content, clear=True):
+		"""Parse according to content type.
+
+		Can parse:
+			strings
+			files (or file-like objects)
+			lists
+
+		"""
+		if isinstance(content, basestring):
+			self._parse_string(content, clear)
+		elif isinstance(content, file):
+			self._parse_file(content, clear)
+		elif hasattr(content, __iter__):
+			self._parse_list(content, clear)
+		else:
+			raise TypeError("Unknown config content type: %s" % type(content))
+
+	def _parse_list(self, list_, clear=True):
 		if clear:
 			self.clear()
 		node = self
@@ -187,15 +206,11 @@ class ConfigRoot(ConfigNode):
 				else:
 					node._comments[key] = comment_block
 
-	def parse_config_string(self, str_, clear=True):
-		self.parse_config_list(str_.splitlines(keepends=False), clear)
+	def _parse_string(self, str_, clear=True):
+		self._parse_list(str_.splitlines(keepends=False), clear)
 
-	def parse_config_file(self, file_, clear=True):
-		self.parse_config_list((line.rstrip('\n') for line in file_), clear)
-
-	def save(self, filename=None):
-		with file(filename or self._filename, 'w+') as f:
-			self._output(stream=f)
+	def _parse_file(self, file_, clear=True):
+		self._parse_list((line.rstrip('\n') for line in file_), clear)
 
 if __name__ == '__main__':
 	import sys
@@ -209,7 +224,7 @@ if __name__ == '__main__':
 	c = ConfigRoot(input)
 	try:
 		print "DEBUG: Parsing File (%s)" % input
-		c.parse_config()
+		c.read()
 	except IOError, e:
 		pass
 	finally:
@@ -238,5 +253,5 @@ if __name__ == '__main__':
 	c.save(output)
 	print "DEBUG: Reparsing outputed file"
 	c = ConfigRoot(output)
-	c.parse_config()
+	c.read()
 	#print "Second Parse:\n%s\n" % c
