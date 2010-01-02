@@ -30,11 +30,18 @@
 from __future__ import with_statement
 
 import os
+import sys
 
 from collections import defaultdict
 from StringIO import StringIO
 
 __version__ = '0.3.4'
+
+if sys.version_info >= (2, 6):
+	is_py26 = True
+	import ast
+else:
+	is_py26 = False
 
 def sterilize_comment(comment):
 	"""Sterilize all lines of a comment.
@@ -194,8 +201,12 @@ class ConfigRoot(ConfigNode):
 			in_header = False
 			key, value = line.split('=', 1)
 			key, value = key.strip(), value.strip()
-			# TODO: Upgrade to ast.eval_literal in Python 2.6
-			node[key] = eval(compile(value, self._filename + ' line: %d' % (index+1), 'eval'))
+			if is_py26:
+				node[key] = ast.literal_eval(value)
+			else:
+				node[key] = eval(compile(
+					value, self._filename + ' line: %d' % (index+1), 'eval'
+				))
 
 			if comment_lines:
 				comment_block = '\n'.join(comment_lines)
