@@ -150,7 +150,7 @@ class ConfigRoot(ConfigNode):
 		"""
 		if isinstance(content, basestring):
 			self._parse_string(content, clear)
-		elif isinstance(content, file):
+		elif hasattr(content, readlines):
 			self._parse_file(content, clear)
 		elif hasattr(content, __iter__):
 			self._parse_list(content, clear)
@@ -210,7 +210,7 @@ class ConfigRoot(ConfigNode):
 		self._parse_list(str_.splitlines(keepends=False), clear)
 
 	def _parse_file(self, file_, clear=True):
-		self._parse_list((line.rstrip('\n') for line in file_), clear)
+		self._parse_list((line.rstrip('\n') for line in file_.readlines()), clear)
 
 if __name__ == '__main__':
 	import sys
